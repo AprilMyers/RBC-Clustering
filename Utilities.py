@@ -96,15 +96,16 @@ def readin_cell_labels(path='data/Cell_Types.csv'):
     '''
     cell_labels = []
     with open(path, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file)
+        csv_reader = csv.reader(csv_file)
         line_count = 0
         for row in csv_reader:
-            cell_labels.append(np.array([row['Cell names'], row['Type'], row['Cut?']]))
+            #cell_labels.append(np.array([row['Cell names'], row['Type'], row['Cut?']])) #past formatting
+            cell_labels.append(row)
     cell_labels = np.array(cell_labels)
     return(cell_labels)
     
     
-def apply_kmeans(clusternum, table, lastsweep=True, plot_data=None):
+def apply_kmeans(clusternum, table, lastsweep=True, plot_data=None, return_clusters=False):
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
     centers = kmeans.cluster_centers_
@@ -126,6 +127,9 @@ def apply_kmeans(clusternum, table, lastsweep=True, plot_data=None):
             plt.title(f"clustercenter {i}: {len(cells_list)}")
             plt.show()
             
+    if(return_clusters):
+        return(y_kmeans)
+            
 def gauss_smoothing(table, width, std):
     gaussmooth_table = np.zeros_like(table)
     b = gaussian(width, std)
@@ -143,7 +147,18 @@ def deriv_calc(table):
         dt = np.append(0,dt)
         dt_table[i, :]=dt
     return dt_table
-            
+
+def norm1(table):
+    '''
+    Normalize to max 1 and min 0 \
+    ***NOT SURE IF THIS IS THE SAME AS APRIL IMPLEMENTED***
+    '''
+    normed_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        trace = (trace - np.min(trace))
+        normed_table[i]  = trace / np.max(trace)
+    return(normed_table)
+        
 def agglom_clust(table, n_clusters, lastsweep, plot_data=None):
     cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
     clusterz = cluster.fit_predict(table)
