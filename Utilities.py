@@ -1,6 +1,7 @@
 import numpy as np
 import glob
 import csv
+import os
 from sklearn.cluster import KMeans
 from sklearn.cluster import AgglomerativeClustering
 import matplotlib.pyplot as plt
@@ -11,6 +12,8 @@ from sklearn.metrics import silhouette_samples, silhouette_score
 import matplotlib.cm as cm
 from scipy.signal import gaussian
 from scipy.ndimage import filters
+import csv
+import re
 
 def load_filelist(folder_path):
     flist = glob.glob(folder_path)
@@ -56,25 +59,51 @@ def load_table(filepath, rm_cap, scale, zero):
     return(table, voltage_list)
     
 
-def generate_table(flist, rm_cap):
+def generate_table(flist, rm_cap, return_flist=False):
     tables = []
     voltage_lists = []
+    final_flist = []
     for path in flist:
         my_table, my_voltage_list = load_table(path, rm_cap=rm_cap, scale=False, zero=True)
         if rm_cap & (my_table.shape == (10800, 16)):
             tables.append(my_table)
             voltage_lists.append(my_voltage_list)
+            final_flist.append(re.sub('.txt','',os.path.basename(path)))
         if ~rm_cap & (my_table.shape == (11000, 16)):
             tables.append(my_table)
             voltage_lists.append(my_voltage_list)
+            final_flist.append(re.sub('.txt','',os.path.basename(path)))
     cell_table = np.stack(tables)
     if rm_cap:
         cell_table = cell_table.reshape((cell_table.shape[0],(10800*16)), order="F")
     else: 
         cell_table = cell_table.reshape((cell_table.shape[0],(11000*16)), order="F")
-    return cell_table
-        
+    
+    if(return_flist):
+        return(cell_table, final_flist)
+    else:
+        return(cell_table)
 
+
+def readin_cell_labels(path='data/Cell_Types.csv'):
+    '''
+    Reads in metadata for each cell including name, manual cell classification, and whether it is excluded from the dataset
+    Parameters:
+        Path (str): Path to .csv file containing metadata
+    Returns:
+        cell_labels (2d array): n_cell by 3 array IDing each cel by name, classification, and boolean indicating it's been removed from the dataset
+    
+    '''
+    cell_labels = []
+    with open(path, mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        line_count = 0
+        for row in csv_reader:
+            cell_labels.append(np.array([row['Cell names'], row['Type'], row['Cut?']]))
+    cell_labels = np.array(cell_labels)
+    return(cell_labels)
+    
+    
 def apply_kmeans(clusternum, table, lastsweep=True, plot_data=None):
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
