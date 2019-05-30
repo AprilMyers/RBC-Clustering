@@ -104,6 +104,53 @@ def readin_cell_labels(path='data/Cell_Types.csv'):
     cell_labels = np.array(cell_labels)
     return(cell_labels)
     
+
+def mark_cell_categories(cell_labels, categorization):
+    '''
+    Create Cell Categorizations that are interesting biologically.
+    Parameters:
+        cell_labels (2d array) numpy array where [:,1] is an array of cell type labels
+        categorization (string) name of the type of catetgorization we'd like to do. Only specific ones supported
+    Returns:
+        cat (1d array of int) numpy array of len(cell_labels) putting each cell into a category
+        cat_labels (1d array of strings) numpy array of len(unique(cell_labels))) naming each category
+    '''
+    cat = np.array([-1 for label in cell_labels])
+    if(categorization=='On_Off'):
+        #strings defining categories
+        on_list = ['DB1','FMB','DB2','DB3','ON']
+        off_list = ['DB4','DB5','DB6','IMB','BB','RB','OFF']
+        other_list = ['Unknown', 'DB','AC','MB','GBC']
+        cat_labels = ['On','Off','Other']
+        #find indexes
+        on_idx = np.where([any(on in cell for on in on_list) for cell in cell_labels[:,1]])
+        off_idx = np.where([any(off in cell for off in off_list) for cell in cell_labels[:,1]])
+        other_idx = np.where([any(oth == cell for oth in other_list) for cell in cell_labels[:,1]])
+        #apply categories to list
+        cat[on_idx] = 0
+        cat[off_idx] = 1
+        cat[other_idx] = 2
+    elif(categorization=='DB'):
+        #strings defining categories
+        cat_labels = ['DB','Non-DB']
+        #find indexes
+        db_idx = np.where(['DB' in cell for cell in cell_labels[:,1]])
+        ndb_idx = np.where(np.invert(['DB' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db_idx] = 0
+        cat[ndb_idx] = 1
+    else:
+        print(f'{categorization} is not a valid cateogorization!')
+        raise ValueError
+    
+    #check we assigned everything to a category
+    if(any(cat==-1)):
+        print(f'Cells Uncategorized!{cell_labels[np.where(cat==-1)]}')
+        raise ValueError
+    
+    return(cat, cat_labels)
+
+    
     
 def apply_kmeans(clusternum, table, lastsweep=True, plot_data=None, return_clusters=False):
     kmeans = KMeans(clusternum).fit(table)
