@@ -130,6 +130,7 @@ def mark_cell_categories(cell_labels, categorization):
         cat[on_idx] = 0
         cat[off_idx] = 1
         cat[other_idx] = 2
+        
     elif(categorization=='DB'):
         #strings defining categories
         cat_labels = ['DB','Non-DB']
@@ -139,6 +140,71 @@ def mark_cell_categories(cell_labels, categorization):
         #apply categories to list
         cat[db_idx] = 0
         cat[ndb_idx] = 1
+        
+    elif(categorization=='RBC'):
+        #strings defining categories
+        cat_labels = ['RBC','Non-RBC']
+        #find indexes
+        rb_idx = np.where(['RBC' in cell for cell in cell_labels[:,1]])
+        nrb_idx = np.where(np.invert(['RBC' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[rb_idx] = 0
+        cat[nrb_idx] = 1
+        
+    elif(categorization=='DB_Subtypes'):
+        #strings defining categories
+       #'AC', 'BB', 'DB', 'DB1', 'DB1 cone', 'DB1 or DB4B', 'DB2',
+       #'DB2 cone', 'DB2 or DB3', 'DB2 or FMB', 'DB2 or ON', 'DB3',
+       #'DB3 or DB4', 'DB3A', 'DB3B', 'DB3B cone', 'DB4', 'DB4 or DB3B',
+       #'DB4 or DB5', 'DB5', 'DB5 or DB6', 'DB6', 'FMB', 'FMB cone',
+       #'FMB cones', 'FMB or DB2', 'GBC', 'IMB', 'MB', 'OFF DB', 'ON',
+       #'ON DB', 'RBC', 'RBC or DB6', 'RBC or ON', 'Unknown']
+        cat_labels = ['Other','DB_unspecified','DB1','DB2','DB3','DB4','DB5','DB6']
+        #find indexes
+        DBx_idx = np.where(['DB' in cell for cell in cell_labels[:,1]])
+        DB1_idx = np.where(['DB1' in cell for cell in cell_labels[:,1]])
+        DB2_idx = np.where(['DB2' in cell for cell in cell_labels[:,1]])
+        DB3_idx = np.where(['DB3' in cell for cell in cell_labels[:,1]])
+        DB4_idx = np.where(['DB4' in cell for cell in cell_labels[:,1]])
+        DB5_idx = np.where(['DB5' in cell for cell in cell_labels[:,1]])
+        DB6_idx = np.where(['DB6' in cell for cell in cell_labels[:,1]])
+        #apply categories to list
+        cat[:] = 0 #other
+        cat[DBx_idx] = 1
+        cat[DB1_idx] = 2
+        cat[DB2_idx] = 3
+        cat[DB3_idx] = 4
+        cat[DB4_idx] = 5
+        cat[DB5_idx] = 6
+        cat[DB6_idx] = 7
+        
+    elif(categorization=='Full'):
+        #strings defining categories
+       #'AC', 'BB', 'DB', 'DB1', 'DB1 cone', 'DB1 or DB4B', 'DB2',
+       #'DB2 cone', 'DB2 or DB3', 'DB2 or FMB', 'DB2 or ON', 'DB3',
+       #'DB3 or DB4', 'DB3A', 'DB3B', 'DB3B cone', 'DB4', 'DB4 or DB3B',
+       #'DB4 or DB5', 'DB5', 'DB5 or DB6', 'DB6', 'FMB', 'FMB cone',
+       #'FMB cones', 'FMB or DB2', 'GBC', 'IMB', 'MB', 'OFF DB', 'ON',
+       #'ON DB', 'RBC', 'RBC or DB6', 'RBC or ON', 'Unknown']
+        cat_labels = ['ON','AC','BB','DB','MB','RBC','GBC','Unknown']
+        #find indexes
+        on_idx = np.where(['ON' in cell for cell in cell_labels[:,1]])
+        ac_idx = np.where(['AC' in cell for cell in cell_labels[:,1]])
+        bb_idx = np.where(['BB' in cell for cell in cell_labels[:,1]])
+        db_idx = np.where(['DB' in cell for cell in cell_labels[:,1]])
+        mb_idx = np.where(['MB' in cell for cell in cell_labels[:,1]])
+        rbc_idx = np.where(['RBC' in cell for cell in cell_labels[:,1]])
+        gbc_idx = np.where(['GBC' in cell for cell in cell_labels[:,1]])
+        unk_idx = np.where(['Unknown' in cell for cell in cell_labels[:,1]])
+        #apply categories to list
+        cat[on_idx] = 0
+        cat[ac_idx] = 1
+        cat[bb_idx] = 2
+        cat[db_idx] = 3
+        cat[mb_idx] = 4
+        cat[rbc_idx] = 5
+        cat[gbc_idx] = 6
+        cat[unk_idx] = 7
     else:
         print(f'{categorization} is not a valid cateogorization!')
         raise ValueError
