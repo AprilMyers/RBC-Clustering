@@ -15,7 +15,9 @@ from scipy.ndimage import filters
 import csv
 import re
 
-def load_filelist(folder_path):
+def load_filelist(folder_path): 
+    ### docstring###
+    
     flist = glob.glob(folder_path)
     flist.remove("/home/april/IActData_Export/R3MK120709_02.txt")
     return flist
