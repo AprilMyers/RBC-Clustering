@@ -225,17 +225,13 @@ def mark_cell_categories(cell_labels, categorization):
     return(cat, cat_labels)
 
     
-def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, plot_data=None, return_clusters=False):
+def apply_kmeans(clusternum, table):
     '''
     Apply the k-means algorithm to the traces in the table with clusternum clusters. Plot these results and return the cluster assignments if desired
     Params:
         clusternum (int): number of clusters desired
         table (2d array): rows are traces, cols are timeseries
-        cats (int array): categorization for each cell
-        cat_labels (label for each category type)
-        lastsweep(bool): plot only the last sweep?
-        plot_data(2d array): dataset to PLOT based on clustering table
-        return_clusters(bool): Should we return the cluster assignments?
+
     Returns:
         y_kmeans (int array): cluster assignments (only if return_clusters ==True)
     '''
@@ -243,20 +239,31 @@ def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, 
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
     centers = kmeans.cluster_centers_
+            
+    return(y_kmeans)
+            
+def plot_clusters(plot_data, cluster_assignments, cats=None, cat_labels=None, lastsweep=True):
+    '''
+    Function to plot a set of traces assignged to cluster_assignments, with categories reflected.
+    Parameters:
+        plot_data (2d array): rows are traces, cols are timeseries
+        cluster_assignments (1d array): Assignments to clusters for each trace in plot_data
+        cats (int array): categorization for each cell
+        cat_labels (label for each category type)
+        lastsweep(bool): plot only the last sweep?
+    '''
     #plotting colors for cluster assginments, or plot everything grey
     if cats is None:
         cats = np.zeros(np.shape(table)[0])
-        
-    if plot_data is None:
-        plot_data = table
-    for i, c in enumerate(centers):
-        cells_list = np.where(y_kmeans == i)[0]
+        cat_lables = [0]
+   
+    for i, c in enumerate(np.unique(cluster_assignments)):
+        cells_list = np.where(cluster_assignments == i)[0]
         if lastsweep:
             #plt.figure(figsize=(8, 5))
             plt.figure()
             seen_labels = []
             for cell in cells_list:
-                
                 if cat_labels[cats[cell]] not in seen_labels:
                     seen_labels.append(cat_labels[cats[cell]])
                     label = cat_labels[cats[cell]]
@@ -284,11 +291,8 @@ def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, 
             plt.plot(c)
             plt.title(f"clustercenter {i}: {len(cells_list)}")
             plt.legend()
-            plt.show()
-            
-    if(return_clusters):
-        return(y_kmeans)
-            
+            plt.show()     
+        
 def gauss_smoothing(table, width, std):
     gaussmooth_table = np.zeros_like(table)
     b = gaussian(width, std)
@@ -328,30 +332,11 @@ def norm_meandepol_1(table):
         normed_table[i]  = trace / np.mean(trace[163000:167000])
     return(normed_table)
         
-def agglom_clust(table, n_clusters, lastsweep, plot_data=None):
+def agglom_clust(n_clusters, table):
     cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
     clusterz = cluster.fit_predict(table)
-  ##  centerz = cluster.clusters_centers_
-    if plot_data is None:
-        plot_data = table
-    for i in range(n_clusters):
-        cells_list = np.where(clusterz == i)[0]
-        
-        if lastsweep:
-            plt.figure(figsize=(12,8))
-            for cell in cells_list:
-                plt.plot(plot_data[cell,162000:], alpha=.1, c="k")
-            plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
-            plt.show()
-            
-        else:
-            plt.figure(figsize=(12,8))
-            for cell in cells_list:
-                plt.plot(plot_data[cell,:], alpha=.1, c="k")
-            plt.title(f"clustercenter {i}: {len(cells_list)}")
-            plt.show()
-            
-    return clusterz, cluster
+    
+    return clusterz
 
 def silhouete_plots(table, range_clusters):
     
