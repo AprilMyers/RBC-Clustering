@@ -104,7 +104,15 @@ def readin_cell_labels(path='data/Cell_Types.csv'):
     cell_labels = np.array(cell_labels)
     return(cell_labels)
     
-
+def check_flist_match(final_flist, cell_labels):
+    '''
+    Make sure the filenames we loaded in are the same and in the same order as our ground truth data
+    '''
+    if(np.alltrue(np.array(final_flist)==cell_labels[:,0])):
+        print(f'All {len(final_flist)} traces match!')
+    else:
+        print(f'Warning! filelist does not match loaded in files! Neuron Assignments will be incorrect!!!')
+    
 def mark_cell_categories(cell_labels, categorization):
     '''
     Create Cell Categorizations that are interesting biologically.
@@ -216,7 +224,6 @@ def mark_cell_categories(cell_labels, categorization):
     
     return(cat, cat_labels)
 
-    
     
 def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, plot_data=None, return_clusters=False):
     '''
