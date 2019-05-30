@@ -166,25 +166,35 @@ def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, 
     Returns:
         y_kmeans (int array): cluster assignments (only if return_clusters ==True)
     '''
+    #run kmeans calculation
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
     centers = kmeans.cluster_centers_
+    #plotting colors for cluster assginments, or plot everything grey
+    if(not(cats==None)):
+        my_cmap = plt.get_cmap('Set1', len(cat_labels))
+    else:
+        cats = np.zeros(np.shape(table)[0])
+        my_cmap = plt.cm.get_cmap('Greys',1)
+        
     if plot_data is None:
         plot_data = table
     for i,c in enumerate(centers):
         cells_list = np.where(y_kmeans == i)[0]
         if lastsweep:
             plt.figure(figsize=(12,8))
-            for cell in cells_list:
-                plt.plot(plot_data[cell,162000:], alpha=.1, c="k")
+            for i, cell in enumerate(cells_list):
+                plt.plot(plot_data[cell,162000:], alpha=.1, color=my_cmap(cats[i]))
             plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
+            plt.legend()
             plt.show()
         else: 
             plt.figure(figsize=(12,8))
-            for cell in cells_list:
-                plt.plot(plot_data[cell,:], alpha=.1, c="k")
+            for i, cell in enumerate(cells_list):
+                plt.plot(plot_data[cell,:], alpha=.1, color=my_cmap(cats[i]))
             plt.plot(c)
             plt.title(f"clustercenter {i}: {len(cells_list)}")
+            plt.legend()
             plt.show()
             
     if(return_clusters):
