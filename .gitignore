@@ -1,3 +1,4 @@
 nohup.out
 data/old/*
 .ipynb_checkpoints*
+__pycache__*
