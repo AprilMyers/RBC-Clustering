@@ -239,7 +239,7 @@ def apply_kmeans(clusternum, table):
     #run kmeans calculation
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
-    centers = kmeans.cluster_centers_
+    #centers = kmeans.cluster_centers_
             
     return(y_kmeans)
             
@@ -262,7 +262,42 @@ def plot_clusters(plot_data, cluster_assignments, cats=None, cat_labels=None, la
     for i, c in enumerate(np.unique(cluster_assignments)):
         cells_list = np.where(cluster_assignments == i)[0]
 
-        
+        if lastsweep:
+            #plt.figure(figsize=(8, 5))
+            plt.figure()
+            seen_labels = []
+            for cell in cells_list:
+
+                if cat_labels[cats[cell]] not in seen_labels:
+                    seen_labels.append(cat_labels[cats[cell]])
+                    label = cat_labels[cats[cell]]
+                else:
+                    label = None
+
+                plt.plot(plot_data[cell,162000:], alpha=.5, color=f"C{cats[cell]}", label=label)
+            plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
+            plt.legend()
+            plt.show()
+        else: 
+            #plt.figure(figsize=(8,5))
+            plt.figure()
+            seen_labels = []
+            for cell in cells_list:
+
+                if cat_labels[cats[cell]] not in seen_labels:
+                    seen_labels.append(cat_labels[cats[cell]])
+                    label = cat_labels[cats[cell]]
+                else:
+                    label = None
+
+                plt.plot(plot_data[cell,:], alpha=.5, color=f"C{cats[cell]}", label=label)
+
+            plt.plot(c)
+            plt.title(f"clustercenter {i}: {len(cells_list)}")
+            plt.legend()
+            plt.show()
+
+    
 def gauss_smoothing(table, width, std):
     gaussmooth_table = np.zeros_like(table)
     b = gaussian(width, std)
@@ -302,7 +337,7 @@ def norm_meandepol_1(table):
         normed_table[i]  = trace / np.mean(trace[163000:167000])
     return(normed_table)
 
-def scale_dt(table, gauss_sd=1000):
+def scale_dt(table, gauss_sd=800):
     '''
     Scale each trace by the Gaussian Blurred dt
     Params:
@@ -311,11 +346,15 @@ def scale_dt(table, gauss_sd=1000):
     Returns:
         scaled_table (2 array) array same size as table with scaled traces
     '''
+    print(f'Scaling {np.shape(table)[0]} traces:', end='')
     scaled_table = np.zeros_like(table)
     for i, trace in enumerate(table):
         dt = np.append(0,np.abs(trace[1:]-trace[:-1]))
         dt = gaussian_filter1d(dt,gauss_sd)
         scaled_table[i] = dt
+        print('*',end='')
+    scaled_table = np.multiply(scaled_table, table)
+    print("Done!")
     return(scaled_table)
     
         
