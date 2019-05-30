@@ -14,6 +14,7 @@ from scipy.signal import gaussian
 from scipy.ndimage import filters
 import csv
 import re
+from scipy.ndimage import gaussian_filter1d
 
 def load_filelist(folder_path):
     flist = glob.glob(folder_path)
@@ -331,6 +332,23 @@ def norm_meandepol_1(table):
         trace = (trace - np.min(trace))
         normed_table[i]  = trace / np.mean(trace[163000:167000])
     return(normed_table)
+
+def scale_dt(table, gauss_sd=1000):
+    '''
+    Scale each trace by the Gaussian Blurred dt
+    Params:
+        table (2d array): array of traces to be scaled
+        gauss_sd (float): standard deviation of gaussian to be applied to traces
+    Returns:
+        scaled_table (2 array) array same size as table with scaled traces
+    '''
+    scaled_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        dt = np.append(0,np.abs(trace[1:]-trace[:-1]))
+        dt = gaussian_filter1d(dt,gauss_sd)
+        scaled_table[i] = dt
+    return(scaled_table)
+    
         
 def agglom_clust(n_clusters, table):
     cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
