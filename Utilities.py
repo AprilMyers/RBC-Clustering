@@ -317,6 +317,16 @@ def norm1(table):
         trace = (trace - np.min(trace))
         normed_table[i]  = trace / np.max(trace)
     return(normed_table)
+
+def norm_meandepol_1(table):
+    '''
+    Normalize to mean of max depolarization 1 and min 0 \
+    '''
+    normed_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        trace = (trace - np.min(trace))
+        normed_table[i]  = trace / np.mean(trace[163000:167000])
+    return(normed_table)
         
 def agglom_clust(table, n_clusters, lastsweep, plot_data=None):
     cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
