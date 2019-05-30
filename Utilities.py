@@ -14,6 +14,7 @@ from scipy.signal import gaussian
 from scipy.ndimage import filters
 import csv
 import re
+from scipy.ndimage import gaussian_filter1d
 
 def load_filelist(folder_path):
     flist = glob.glob(folder_path)
@@ -104,7 +105,15 @@ def readin_cell_labels(path='data/Cell_Types.csv'):
     cell_labels = np.array(cell_labels)
     return(cell_labels)
     
-
+def check_flist_match(final_flist, cell_labels):
+    '''
+    Make sure the filenames we loaded in are the same and in the same order as our ground truth data
+    '''
+    if(np.alltrue(np.array(final_flist)==cell_labels[:,0])):
+        print(f'All {len(final_flist)} traces match!')
+    else:
+        print(f'Warning! filelist does not match loaded in files! Neuron Assignments will be incorrect!!!')
+    
 def mark_cell_categories(cell_labels, categorization):
     '''
     Create Cell Categorizations that are interesting biologically.
@@ -130,6 +139,7 @@ def mark_cell_categories(cell_labels, categorization):
         cat[on_idx] = 0
         cat[off_idx] = 1
         cat[other_idx] = 2
+        
     elif(categorization=='DB'):
         #strings defining categories
         cat_labels = ['DB','Non-DB']
@@ -139,6 +149,71 @@ def mark_cell_categories(cell_labels, categorization):
         #apply categories to list
         cat[db_idx] = 0
         cat[ndb_idx] = 1
+        
+    elif(categorization=='RBC'):
+        #strings defining categories
+        cat_labels = ['RBC','Non-RBC']
+        #find indexes
+        rb_idx = np.where(['RBC' in cell for cell in cell_labels[:,1]])
+        nrb_idx = np.where(np.invert(['RBC' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[rb_idx] = 0
+        cat[nrb_idx] = 1
+        
+    elif(categorization=='DB_Subtypes'):
+        #strings defining categories
+       #'AC', 'BB', 'DB', 'DB1', 'DB1 cone', 'DB1 or DB4B', 'DB2',
+       #'DB2 cone', 'DB2 or DB3', 'DB2 or FMB', 'DB2 or ON', 'DB3',
+       #'DB3 or DB4', 'DB3A', 'DB3B', 'DB3B cone', 'DB4', 'DB4 or DB3B',
+       #'DB4 or DB5', 'DB5', 'DB5 or DB6', 'DB6', 'FMB', 'FMB cone',
+       #'FMB cones', 'FMB or DB2', 'GBC', 'IMB', 'MB', 'OFF DB', 'ON',
+       #'ON DB', 'RBC', 'RBC or DB6', 'RBC or ON', 'Unknown']
+        cat_labels = ['Other','DB_unspecified','DB1','DB2','DB3','DB4','DB5','DB6']
+        #find indexes
+        DBx_idx = np.where(['DB' in cell for cell in cell_labels[:,1]])
+        DB1_idx = np.where(['DB1' in cell for cell in cell_labels[:,1]])
+        DB2_idx = np.where(['DB2' in cell for cell in cell_labels[:,1]])
+        DB3_idx = np.where(['DB3' in cell for cell in cell_labels[:,1]])
+        DB4_idx = np.where(['DB4' in cell for cell in cell_labels[:,1]])
+        DB5_idx = np.where(['DB5' in cell for cell in cell_labels[:,1]])
+        DB6_idx = np.where(['DB6' in cell for cell in cell_labels[:,1]])
+        #apply categories to list
+        cat[:] = 0 #other
+        cat[DBx_idx] = 1
+        cat[DB1_idx] = 2
+        cat[DB2_idx] = 3
+        cat[DB3_idx] = 4
+        cat[DB4_idx] = 5
+        cat[DB5_idx] = 6
+        cat[DB6_idx] = 7
+        
+    elif(categorization=='Full'):
+        #strings defining categories
+       #'AC', 'BB', 'DB', 'DB1', 'DB1 cone', 'DB1 or DB4B', 'DB2',
+       #'DB2 cone', 'DB2 or DB3', 'DB2 or FMB', 'DB2 or ON', 'DB3',
+       #'DB3 or DB4', 'DB3A', 'DB3B', 'DB3B cone', 'DB4', 'DB4 or DB3B',
+       #'DB4 or DB5', 'DB5', 'DB5 or DB6', 'DB6', 'FMB', 'FMB cone',
+       #'FMB cones', 'FMB or DB2', 'GBC', 'IMB', 'MB', 'OFF DB', 'ON',
+       #'ON DB', 'RBC', 'RBC or DB6', 'RBC or ON', 'Unknown']
+        cat_labels = ['ON','AC','BB','DB','MB','RBC','GBC','Unknown']
+        #find indexes
+        on_idx = np.where(['ON' in cell for cell in cell_labels[:,1]])
+        ac_idx = np.where(['AC' in cell for cell in cell_labels[:,1]])
+        bb_idx = np.where(['BB' in cell for cell in cell_labels[:,1]])
+        db_idx = np.where(['DB' in cell for cell in cell_labels[:,1]])
+        mb_idx = np.where(['MB' in cell for cell in cell_labels[:,1]])
+        rbc_idx = np.where(['RBC' in cell for cell in cell_labels[:,1]])
+        gbc_idx = np.where(['GBC' in cell for cell in cell_labels[:,1]])
+        unk_idx = np.where(['Unknown' in cell for cell in cell_labels[:,1]])
+        #apply categories to list
+        cat[on_idx] = 0
+        cat[ac_idx] = 1
+        cat[bb_idx] = 2
+        cat[db_idx] = 3
+        cat[mb_idx] = 4
+        cat[rbc_idx] = 5
+        cat[gbc_idx] = 6
+        cat[unk_idx] = 7
     else:
         print(f'{categorization} is not a valid cateogorization!')
         raise ValueError
@@ -151,18 +226,13 @@ def mark_cell_categories(cell_labels, categorization):
     return(cat, cat_labels)
 
     
-    
-def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, plot_data=None, return_clusters=False):
+def apply_kmeans(clusternum, table):
     '''
     Apply the k-means algorithm to the traces in the table with clusternum clusters. Plot these results and return the cluster assignments if desired
     Params:
         clusternum (int): number of clusters desired
         table (2d array): rows are traces, cols are timeseries
-        cats (int array): categorization for each cell
-        cat_labels (label for each category type)
-        lastsweep(bool): plot only the last sweep?
-        plot_data(2d array): dataset to PLOT based on clustering table
-        return_clusters(bool): Should we return the cluster assignments?
+
     Returns:
         y_kmeans (int array): cluster assignments (only if return_clusters ==True)
     '''
@@ -170,52 +240,29 @@ def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, 
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
     centers = kmeans.cluster_centers_
+            
+    return(y_kmeans)
+            
+def plot_clusters(plot_data, cluster_assignments, cats=None, cat_labels=None, lastsweep=True):
+    '''
+    Function to plot a set of traces assignged to cluster_assignments, with categories reflected.
+    Parameters:
+        plot_data (2d array): rows are traces, cols are timeseries
+        cluster_assignments (1d array): Assignments to clusters for each trace in plot_data
+        cats (int array): categorization for each cell
+        cat_labels (label for each category type)
+        lastsweep(bool): plot only the last sweep?
+    '''
     #plotting colors for cluster assginments, or plot everything grey
-    if cats.any() is None:
+    
+    if cats is None:
         cats = np.zeros(np.shape(table)[0])
+        cat_lables = [0]
+   
+    for i, c in enumerate(np.unique(cluster_assignments)):
+        cells_list = np.where(cluster_assignments == i)[0]
+
         
-    if plot_data is None:
-        plot_data = table
-    for i, c in enumerate(centers):
-        cells_list = np.where(y_kmeans == i)[0]
-        if lastsweep:
-            #plt.figure(figsize=(8, 5))
-            plt.figure()
-            seen_labels = []
-            for cell in cells_list:
-                
-                if cat_labels[cats[cell]] not in seen_labels:
-                    seen_labels.append(cat_labels[cats[cell]])
-                    label = cat_labels[cats[cell]]
-                else:
-                    label = None
-                    
-                plt.plot(plot_data[cell,162000:], alpha=.5, color=f"C{cats[cell]}", label=label)
-            plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
-            plt.legend()
-            plt.show()
-        else: 
-            #plt.figure(figsize=(8,5))
-            plt.figure()
-            seen_labels = []
-            for cell in cells_list:
-                
-                if cat_labels[cats[cell]] not in seen_labels:
-                    seen_labels.append(cat_labels[cats[cell]])
-                    label = cat_labels[cats[cell]]
-                else:
-                    label = None
-                    
-                plt.plot(plot_data[cell,:], alpha=.5, color=f"C{cats[cell]}", label=label)
-                
-            plt.plot(c)
-            plt.title(f"clustercenter {i}: {len(cells_list)}")
-            plt.legend()
-            plt.show()
-            
-    if(return_clusters):
-        return(y_kmeans)
-            
 def gauss_smoothing(table, width, std):
     gaussmooth_table = np.zeros_like(table)
     b = gaussian(width, std)
@@ -244,31 +291,39 @@ def norm1(table):
         trace = (trace - np.min(trace))
         normed_table[i]  = trace / np.max(trace)
     return(normed_table)
+
+def norm_meandepol_1(table):
+    '''
+    Normalize to mean of max depolarization 1 and min 0 \
+    '''
+    normed_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        trace = (trace - np.min(trace))
+        normed_table[i]  = trace / np.mean(trace[163000:167000])
+    return(normed_table)
+
+def scale_dt(table, gauss_sd=1000):
+    '''
+    Scale each trace by the Gaussian Blurred dt
+    Params:
+        table (2d array): array of traces to be scaled
+        gauss_sd (float): standard deviation of gaussian to be applied to traces
+    Returns:
+        scaled_table (2 array) array same size as table with scaled traces
+    '''
+    scaled_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        dt = np.append(0,np.abs(trace[1:]-trace[:-1]))
+        dt = gaussian_filter1d(dt,gauss_sd)
+        scaled_table[i] = dt
+    return(scaled_table)
+    
         
-def agglom_clust(table, n_clusters, lastsweep, plot_data=None):
+def agglom_clust(n_clusters, table):
     cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
     clusterz = cluster.fit_predict(table)
-  ##  centerz = cluster.clusters_centers_
-    if plot_data is None:
-        plot_data = table
-    for i in range(n_clusters):
-        cells_list = np.where(clusterz == i)[0]
-        
-        if lastsweep:
-            plt.figure(figsize=(12,8))
-            for cell in cells_list:
-                plt.plot(plot_data[cell,162000:], alpha=.1, c="k")
-            plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
-            plt.show()
-            
-        else:
-            plt.figure(figsize=(12,8))
-            for cell in cells_list:
-                plt.plot(plot_data[cell,:], alpha=.1, c="k")
-            plt.title(f"clustercenter {i}: {len(cells_list)}")
-            plt.show()
-            
-    return clusterz, cluster
+    
+    return clusterz
 
 def silhouete_plots(table, range_clusters):
     
