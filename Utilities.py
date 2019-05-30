@@ -15,9 +15,7 @@ from scipy.ndimage import filters
 import csv
 import re
 
-def load_filelist(folder_path): 
-    ### docstring###
-    
+def load_filelist(folder_path):
     flist = glob.glob(folder_path)
     flist.remove("/home/april/IActData_Export/R3MK120709_02.txt")
     return flist
@@ -154,7 +152,20 @@ def mark_cell_categories(cell_labels, categorization):
 
     
     
-def apply_kmeans(clusternum, table, lastsweep=True, plot_data=None, return_clusters=False):
+def apply_kmeans(clusternum, table, cats=None, cat_labels=None, lastsweep=True, plot_data=None, return_clusters=False):
+    '''
+    Apply the k-means algorithm to the traces in the table with clusternum clusters. Plot these results and return the cluster assignments if desired
+    Params:
+        clusternum (int): number of clusters desired
+        table (2d array): rows are traces, cols are timeseries
+        cats (int array): categorization for each cell
+        cat_labels (label for each category type)
+        lastsweep(bool): plot only the last sweep?
+        plot_data(2d array): dataset to PLOT based on clustering table
+        return_clusters(bool): Should we return the cluster assignments?
+    Returns:
+        y_kmeans (int array): cluster assignments (only if return_clusters ==True)
+    '''
     kmeans = KMeans(clusternum).fit(table)
     y_kmeans = kmeans.predict(table)
     centers = kmeans.cluster_centers_
