@@ -16,7 +16,16 @@ import csv
 import re
 from scipy.ndimage import gaussian_filter1d
 
+#### Load & modify data #####
+
 def load_filelist(folder_path):
+    """
+    Loads list of file paths given a folder path.
+    params:
+        folder_path (string): path to file.
+    returns:
+        flist (list): list of file paths.  
+    """
     flist = glob.glob(folder_path)
     flist.remove("/home/april/IActData_Export/R3MK120709_02.txt")
     return flist
@@ -60,7 +69,16 @@ def load_table(filepath, rm_cap, scale, zero):
     return(table, voltage_list)
     
 
-def generate_table(flist, rm_cap, return_flist=False):
+def generate_table(flist, rm_cap, norm=1):
+    """
+    Loads table from a given file list
+    params:
+        flist (list): List of file paths for individual cells.
+        rm_cap: Flag to remove capacitance artefact
+        return_flist: Flag to return file list or not.
+    returns:
+        cell_table (np.array): Array of cells data. 
+    """
     tables = []
     voltage_lists = []
     final_flist = []
@@ -74,17 +92,32 @@ def generate_table(flist, rm_cap, return_flist=False):
             tables.append(my_table)
             voltage_lists.append(my_voltage_list)
             final_flist.append(re.sub('.txt','',os.path.basename(path)))
-    cell_table = np.stack(tables)
+    table = np.stack(tables)
     if rm_cap:
-        cell_table = cell_table.reshape((cell_table.shape[0],(10800*16)), order="F")
+        table = table.reshape((table.shape[0],(10800*16)), order="F")
     else: 
-        cell_table = cell_table.reshape((cell_table.shape[0],(11000*16)), order="F")
-    
-    if(return_flist):
-        return(cell_table, final_flist)
+        table = table.reshape((table.shape[0],(11000*16)), order="F")
+    if norm == 0: 
+        normed_table = np.zeros_like(table)
+        for i, trace in enumerate(table):
+            trace = (trace - np.min(trace))
+            normed_table[i]  = trace / np.mean(trace[0:50])
+            normed_table[i] = normed_table[i] - 1
+        return(final_flist, normed_table) 
+    if norm == 1: 
+        normed_table = np.zeros_like(table)
+        for i, trace in enumerate(table):
+            trace = (trace - np.min(trace))
+            normed_table[i]  = trace / np.mean(trace[163000:167000])
+        return(final_flist, normed_table)
+    if norm == 3:
+        normed_table = np.zeros_like(table)
+        cells_max = np.amax(table, axis=1)
+        normed_table = table / cells_max[:,None]
+        return(final_flist, normed_table)
     else:
-        return(cell_table)
-
+        return(final_flist, cell_table)
+        
 
 def readin_cell_labels(path='data/Cell_Types.csv'):
     '''
@@ -104,6 +137,16 @@ def readin_cell_labels(path='data/Cell_Types.csv'):
             cell_labels.append(row)
     cell_labels = np.array(cell_labels)
     return(cell_labels)
+    
+def filter_goodlabels(cell_labels, table):
+    good_labels = ['DB4','DB5','DB6','IMB','BB','RB','DB1','FMB','DB2','DB3']
+    keep_flag = np.ones(len(cell_labels[:,1]), dtype=bool)
+    for i, cell in enumerate(cell_labels[:,1]):
+        if cell in good_labels:
+             keep_flag[i] = False
+    cell_labels = cell_labels[keep_flag]
+    table = table[keep_flag]
+    return(cell_labels, table, keep_flag)
     
 def check_flist_match(final_flist, cell_labels):
     '''
@@ -127,8 +170,8 @@ def mark_cell_categories(cell_labels, categorization):
     cat = np.array([-1 for label in cell_labels])
     if(categorization=='On_Off'):
         #strings defining categories
-        on_list = ['DB1','FMB','DB2','DB3','ON']
-        off_list = ['DB4','DB5','DB6','IMB','BB','RB','OFF']
+        off_list = ['DB1','FMB','DB2','DB3','OFF']
+        on_list = ['DB4','DB5','DB6','IMB','BB','RB','ON']
         other_list = ['Unknown', 'DB','AC','MB','GBC']
         cat_labels = ['On','Off','Other']
         #find indexes
@@ -214,6 +257,107 @@ def mark_cell_categories(cell_labels, categorization):
         cat[rbc_idx] = 5
         cat[gbc_idx] = 6
         cat[unk_idx] = 7
+        
+    elif(categorization=='DB1'):
+        #strings defining categories
+        cat_labels = ['DB1','Non-DB1']
+        #find indexes
+        db1_idx = np.where(['DB1' in cell for cell in cell_labels[:,1]])
+        ndb1_idx = np.where(np.invert(['DB1' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db1_idx] = 0
+        cat[ndb1_idx] = 1
+        
+    elif(categorization=='DB2'):
+        #strings defining categories
+        cat_labels = ['DB2','Non-DB2']
+        #find indexes
+        db2_idx = np.where(['DB2' in cell for cell in cell_labels[:,1]])
+        ndb2_idx = np.where(np.invert(['DB2' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db2_idx] = 0
+        cat[ndb2_idx] = 1
+
+    elif(categorization=='DB3'):
+        #strings defining categories
+        cat_labels = ['DB3','Non-DB3']
+        #find indexes
+        db3_idx = np.where(['DB3' in cell for cell in cell_labels[:,1]])
+        ndb3_idx = np.where(np.invert(['DB3' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db3_idx] = 0
+        cat[ndb3_idx] = 1        
+        
+    elif(categorization=='DB4'):
+        #strings defining categories
+        cat_labels = ['DB4','Non-DB4']
+        #find indexes
+        db4_idx = np.where(['DB4' in cell for cell in cell_labels[:,1]])
+        ndb4_idx = np.where(np.invert(['DB4' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db4_idx] = 0
+        cat[ndb4_idx] = 1        
+        
+    elif(categorization=='DB5'):
+        #strings defining categories
+        cat_labels = ['DB5','Non-DB5']
+        #find indexes
+        db5_idx = np.where(['DB5' in cell for cell in cell_labels[:,1]])
+        ndb5_idx = np.where(np.invert(['DB5' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db5_idx] = 0
+        cat[ndb5_idx] = 1      
+        
+    elif(categorization=='DB6'):
+        #strings defining categories
+        cat_labels = ['DB6','Non-DB6']
+        #find indexes
+        db6_idx = np.where(['DB6' in cell for cell in cell_labels[:,1]])
+        ndb6_idx = np.where(np.invert(['DB6' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[db6_idx] = 0
+        cat[ndb6_idx] = 1        
+        
+    elif(categorization=='FMB'):
+        #strings defining categories
+        cat_labels = ['FMB','Non-FMB']
+        #find indexes
+        FMB_idx = np.where(['FMB' in cell for cell in cell_labels[:,1]])
+        nFMB_idx = np.where(np.invert(['FMB' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[FMB_idx] = 0
+        cat[nFMB_idx] = 1   
+        
+    elif(categorization=='IMB'):
+        #strings defining categories
+        cat_labels = ['IMB','Non-IMB']
+        #find indexes
+        IMB_idx = np.where(['IMB' in cell for cell in cell_labels[:,1]])
+        nIMB_idx = np.where(np.invert(['IMB' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[IMB_idx] = 0
+        cat[nIMB_idx] = 1   
+        
+    elif(categorization=='BB'):
+        #strings defining categories
+        cat_labels = ['BB','Non-BB']
+        #find indexes
+        BB_idx = np.where(['BB' in cell for cell in cell_labels[:,1]])
+        nBB_idx = np.where(np.invert(['BB' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[BB_idx] = 0
+        cat[nBB_idx] = 1  
+        
+    elif(categorization=='GBC'):
+        #strings defining categories
+        cat_labels = ['GBC','Non-GBC']
+        #find indexes
+        GBC_idx = np.where(['GBC' in cell for cell in cell_labels[:,1]])
+        nGBC_idx = np.where(np.invert(['GBC' in cell for cell in cell_labels[:,1]]))
+        #apply categories to list
+        cat[GBC_idx] = 0
+        cat[nGBC_idx] = 1  
+        
     else:
         print(f'{categorization} is not a valid cateogorization!')
         raise ValueError
@@ -225,80 +369,18 @@ def mark_cell_categories(cell_labels, categorization):
     
     return(cat, cat_labels)
 
-    
-def apply_kmeans(clusternum, table):
-    '''
-    Apply the k-means algorithm to the traces in the table with clusternum clusters. Plot these results and return the cluster assignments if desired
-    Params:
-        clusternum (int): number of clusters desired
-        table (2d array): rows are traces, cols are timeseries
+##### Normalize Data #####
 
-    Returns:
-        y_kmeans (int array): cluster assignments (only if return_clusters ==True)
-    '''
-    #run kmeans calculation
-    kmeans = KMeans(clusternum).fit(table)
-    y_kmeans = kmeans.predict(table)
-    #centers = kmeans.cluster_centers_
-            
-    return(y_kmeans)
-            
-def plot_clusters(plot_data, cluster_assignments, cats=None, cat_labels=None, lastsweep=True):
-    '''
-    Function to plot a set of traces assignged to cluster_assignments, with categories reflected.
-    Parameters:
-        plot_data (2d array): rows are traces, cols are timeseries
-        cluster_assignments (1d array): Assignments to clusters for each trace in plot_data
-        cats (int array): categorization for each cell
-        cat_labels (label for each category type)
-        lastsweep(bool): plot only the last sweep?
-    '''
-    #plotting colors for cluster assginments, or plot everything grey
-    
-    if cats is None:
-        cats = np.zeros(np.shape(table)[0])
-        cat_lables = [0]
-   
-    for i, c in enumerate(np.unique(cluster_assignments)):
-        cells_list = np.where(cluster_assignments == i)[0]
-
-        if lastsweep:
-            #plt.figure(figsize=(8, 5))
-            plt.figure()
-            seen_labels = []
-            for cell in cells_list:
-
-                if cat_labels[cats[cell]] not in seen_labels:
-                    seen_labels.append(cat_labels[cats[cell]])
-                    label = cat_labels[cats[cell]]
-                else:
-                    label = None
-
-                plt.plot(plot_data[cell,162000:], alpha=.5, color=f"C{cats[cell]}", label=label)
-            plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
-            plt.legend()
-            plt.show()
-        else: 
-            #plt.figure(figsize=(8,5))
-            plt.figure()
-            seen_labels = []
-            for cell in cells_list:
-
-                if cat_labels[cats[cell]] not in seen_labels:
-                    seen_labels.append(cat_labels[cats[cell]])
-                    label = cat_labels[cats[cell]]
-                else:
-                    label = None
-
-                plt.plot(plot_data[cell,:], alpha=.5, color=f"C{cats[cell]}", label=label)
-
-            plt.plot(c)
-            plt.title(f"clustercenter {i}: {len(cells_list)}")
-            plt.legend()
-            plt.show()
-
-    
 def gauss_smoothing(table, width, std):
+    """
+    Performs gaussian smothing on a given table
+    params:
+        table (np.array): Table upon which gaussian smoothing will be performed.
+        width (int): Width of smoothing window
+        std (float): Standard deviation
+    returns:
+        gaussmooth_table (array): Gaussian-smoothed table
+    """
     gaussmooth_table = np.zeros_like(table)
     b = gaussian(width, std)
     for i, trace in enumerate(table):
@@ -306,36 +388,25 @@ def gauss_smoothing(table, width, std):
         gaussmooth_table[i] = smoothed_trace
     return gaussmooth_table
             
-def deriv_calc(table):
+def deriv_calc(table, absval=True):
+    """
+    Takes derivative of table
+    params:
+        table (array): table of data
+    returns:
+        dt_table (array): Derivative of table (NOT derivative multiplied by table)
+    """
     dt_table = np.zeros_like(table)
     for i, trace in enumerate(table):
         t0 = trace[:-1]
         t1 = trace[1:]
-        dt = np.abs(t1 - t0)
+        if absval == True:
+            dt = np.abs(t1 - t0)
+        else:
+            dt = t1 - t0
         dt = np.append(0,dt)
         dt_table[i, :]=dt
     return dt_table
-
-def norm1(table):
-    '''
-    Normalize to max 1 and min 0 \
-    ***NOT SURE IF THIS IS THE SAME AS APRIL IMPLEMENTED***
-    '''
-    normed_table = np.zeros_like(table)
-    for i, trace in enumerate(table):
-        trace = (trace - np.min(trace))
-        normed_table[i]  = trace / np.max(trace)
-    return(normed_table)
-
-def norm_meandepol_1(table):
-    '''
-    Normalize to mean of max depolarization 1 and min 0 \
-    '''
-    normed_table = np.zeros_like(table)
-    for i, trace in enumerate(table):
-        trace = (trace - np.min(trace))
-        normed_table[i]  = trace / np.mean(trace[163000:167000])
-    return(normed_table)
 
 def scale_dt(table, gauss_sd=800):
     '''
@@ -356,82 +427,44 @@ def scale_dt(table, gauss_sd=800):
     scaled_table = np.multiply(scaled_table, table)
     print("Done!")
     return(scaled_table)
-    
-        
-def agglom_clust(n_clusters, table):
-    cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
-    clusterz = cluster.fit_predict(table)
-    
-    return clusterz
 
-def silhouete_plots(table, range_clusters):
-    
-    print(__doc__)
+### Turn this into flag
+def norm1(table):
+    '''
+    Normalize to max 1 and min 0 \
+    ***NOT SURE IF THIS IS THE SAME AS APRIL IMPLEMENTED***
+    '''
+    normed_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        trace = (trace - np.min(trace))
+        normed_table[i]  = trace / np.max(trace)
+    return(normed_table)
 
-    for n_clusters in range_clusters:
-        # Create a subplot with 1 row and 2 columns
-        fig, (ax1, ax2) = plt.subplots(1, 2)
-        fig.set_size_inches(18, 7)
+def norm_meandepol_1(table):
+    '''
+    Normalize to mean of max depolarization 1 and min 0 \
+    '''
+    normed_table = np.zeros_like(table)
+    for i, trace in enumerate(table):
+        trace = (trace - np.min(trace))
+        normed_table[i]  = trace / np.mean(trace[163000:167000])
+    return(normed_table)
+###
 
-        # The 1st subplot is the silhouette plot
-        # The silhouette coefficient can range from -1, 1 but in this example all
-        # lie within [-0.1, 1]
-        ax1.set_xlim([-0.1, 1])
-        # The (n_clusters+1)*10 is for inserting blank space between silhouette
-        # plots of individual clusters, to demarcate them clearly.
-        ax1.set_ylim([0, len(table) + (n_clusters + 1) * 10])
-
-        # Initialize the clusterer with n_clusters value and a random generator
-        # seed of 10 for reproducibility.
-        clusterer = KMeans(n_clusters=n_clusters)
-        cluster_labels = clusterer.fit_predict(table)
-
-        # The silhouette_score gives the average value for all the samples.
-        # This gives a perspective into the density and separation of the formed
-        # clusters
-        silhouette_avg = silhouette_score(table, cluster_labels)
-        print("For n_clusters =", n_clusters, "The average silhouette_score is :", silhouette_avg)
-
-        # Compute the silhouette scores for each sample
-        sample_silhouette_values = silhouette_samples(table, cluster_labels)
-
-        y_lower = 10
-        for i in range(n_clusters):
-        # Aggregate the silhouette scores for samples belonging to
-        # cluster i, and sort them
-            ith_cluster_silhouette_values = \
-                sample_silhouette_values[cluster_labels == i]
-
-            ith_cluster_silhouette_values.sort()
-
-            size_cluster_i = ith_cluster_silhouette_values.shape[0]
-            y_upper = y_lower + size_cluster_i
-
-            color = cm.nipy_spectral(float(i) / n_clusters)
-            ax1.fill_betweenx(np.arange(y_lower, y_upper), 0, ith_cluster_silhouette_values, facecolor=color, edgecolor=color, alpha=0.7)
-
-        # Label the silhouette plots with their cluster numbers at the middle
-            ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
-
-        # Compute the new y_lower for next plot
-            y_lower = y_upper + 10  # 10 for the 0 samples
-
-        ax1.set_title("The silhouette plot for the various clusters.")
-        ax1.set_xlabel("The silhouette coefficient values")
-        ax1.set_ylabel("Cluster label")
-
-    # The vertical line for average silhouette score of all the values
-        ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
-
-        ax1.set_yticks([])  # Clear the yaxis labels / ticks
-        ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
-
-        plt.suptitle(("Silhouette analysis for KMeans clustering on sample data "
-            "with n_clusters = %d" % n_clusters), fontsize=14, fontweight='bold')
-    plt.show()   
+##### PCA #####
 
 def run_pca(table, n_components):
-        
+    '''
+    ##This function is broken!##
+    Runs PCA on a given table for a given number of components
+    Params:
+        table (2d array): array of traces 
+        n_components (int): Number of components to be visualized
+    Returns:
+        covar_matrix: Covariance matrix
+        variance (list): list of variances
+        components (list): list of components 
+    '''
     #calculate variance explained and cumulative variance explained
     covar_matrix=sklearnPCA(n_components=10)
     covar_matrix.fit(table)
@@ -452,6 +485,33 @@ def run_pca(table, n_components):
     return components
     
 def pca_denoise(table, n_components, compare):
+    '''
+    Takes a table and performs PCA denoising on it. 
+    Params:
+        table (array): Array of traces
+        n_components (int): Number of components to be subtracted
+        compare: Flag for visualizations comparing original data to denoised data
+    Returns:
+        tables_r (array): Array of PCA-denoised traces
+    '''
+    #calculate variance explained and cumulative variance explained
+    covar_matrix=sklearnPCA(n_components=10)
+    covar_matrix.fit(table)
+    variance=covar_matrix.explained_variance_ratio_
+    var=np.cumsum(np.round(covar_matrix.explained_variance_ratio_, decimals=3)*100)
+    
+    #print graph of the variance explained with [n] features
+    plt.ylabel('%variance explained')
+    plt.xlabel('# of principle components')
+    plt.title('Variance Explained')
+   ## plt.ylim(70,100.5)
+    plt.style.context('seaborn-whitegrid')
+   # plt.plot(variance[:n_components])
+    variance=covar_matrix.explained_variance_ratio_
+    components=covar_matrix.components_
+    return covar_matrix
+    return variance
+    return components
     tables_mean = np.mean(table,axis=0)
     #d_mean is also contained in sklearn_pca.mean_ after running
 
@@ -549,7 +609,31 @@ def pca_denoise(table, n_components, compare):
     return tables_r
     
 def check_denoise(table, table_recon, tracenum):
+    '''
+    Visually compares individual traces from original and PCA-reconstructed data 
+    Params:
+        table (array): Original data
+        table_recon (array): PCA-denoised data
+        tracenum (int): Trace number (1-400) to be visualized
+    '''
+    #calculate variance explained and cumulative variance explained
+    covar_matrix=sklearnPCA(n_components=10)
+    covar_matrix.fit(table)
+    variance=covar_matrix.explained_variance_ratio_
+    var=np.cumsum(np.round(covar_matrix.explained_variance_ratio_, decimals=3)*100)
     
+    #print graph of the variance explained with [n] features
+    plt.ylabel('%variance explained')
+    plt.xlabel('# of principle components')
+    plt.title('Variance Explained')
+   ## plt.ylim(70,100.5)
+    plt.style.context('seaborn-whitegrid')
+   # plt.plot(variance[:n_components])
+    variance=covar_matrix.explained_variance_ratio_
+    components=covar_matrix.components_
+    return covar_matrix
+    return variance
+    return components
     diff_full = table - table_recon
     plt.figure(figsize=(10,5))
     plt.subplot(1,2,1)
@@ -567,22 +651,32 @@ def check_denoise(table, table_recon, tracenum):
     plt.show()
     return
     
-def grab_on(table):
-    table_on = []
-    for cell in table:
-        if cell[163000] < cell[164500]:
-            table_on.append(cell)
-    return np.asarray(table_on)
-
-def grab_off(table):
-    table_off = []
-    for cell in table:
-        if cell[163000] > cell[164500]:
-            table_off.append(cell)
-    return np.asarray(table_off)
-    
 def pcadenoise_visualizations(table, sweep16, allsweeps):
-        
+    '''
+    Visualizes PCA-denoised data
+    Params:
+        table (2d array): array of traces 
+        sweep16: Flag to visualize only sweep 16
+        allsweeps: Flag to visualize all sweeps
+    '''
+    #calculate variance explained and cumulative variance explained
+    covar_matrix=sklearnPCA(n_components=10)
+    covar_matrix.fit(table)
+    variance=covar_matrix.explained_variance_ratio_
+    var=np.cumsum(np.round(covar_matrix.explained_variance_ratio_, decimals=3)*100)
+    
+    #print graph of the variance explained with [n] features
+    plt.ylabel('%variance explained')
+    plt.xlabel('# of principle components')
+    plt.title('Variance Explained')
+   ## plt.ylim(70,100.5)
+    plt.style.context('seaborn-whitegrid')
+   # plt.plot(variance[:n_components])
+    variance=covar_matrix.explained_variance_ratio_
+    components=covar_matrix.components_
+    return covar_matrix
+    return variance
+    return components
     if sweep16 == True:
         plt.figure(figsize=(10,5))
         plt.subplot(1,2,1)
@@ -601,8 +695,198 @@ def pcadenoise_visualizations(table, sweep16, allsweeps):
         plt.title(f'Original Time Series Data')
         plt.show()
 
-def silhouete_plots_agglom(table, range_clusters):
+##### Kmeans clustering #####
+        
+def apply_kmeans(n_clusters, table):
+    '''
+    Apply the k-means algorithm to the traces in the table with clusternum clusters. Plot these results and return the cluster assignments if desired
+    Params:
+        clusternum (int): number of clusters desired
+        table (2d array): rows are traces, cols are timeseries
+
+    Returns:
+        y_kmeans (int array): cluster assignments (only if return_clusters ==True)
+    '''
+    #run kmeans calculation
+    kmeans = KMeans(n_clusters).fit(table)
+    y_kmeans = kmeans.predict(table)
+    #centers = kmeans.cluster_centers_
+            
+    return(y_kmeans)
+            
+def plot_clusters(plot_data, cluster_assignments, cats=None, cat_labels=None, lastsweep=True):
+    '''
+    Function to plot a set of traces assignged to cluster_assignments, with categories reflected.
+    Parameters:
+        plot_data (2d array): rows are traces, cols are timeseries
+        cluster_assignments (1d array): Assignments to clusters for each trace in plot_data
+        cats (int array): categorization for each cell
+        cat_labels (label for each category type)
+        lastsweep(bool): plot only the last sweep?
+    '''
+    #plotting colors for cluster assginments, or plot everything grey
     
+    if cats is None:
+        cats = np.zeros(np.shape(table)[0])
+        cat_lables = [0]
+   
+    for i, c in enumerate(np.unique(cluster_assignments)):
+        cells_list = np.where(cluster_assignments == i)[0]
+
+        if lastsweep:
+            #plt.figure(figsize=(8, 5))
+            plt.figure()
+            seen_labels = []
+            for cell in cells_list:
+
+                if cat_labels[cats[cell]] not in seen_labels:
+                    seen_labels.append(cat_labels[cats[cell]])
+                    label = cat_labels[cats[cell]]
+                else:
+                    label = None
+
+                plt.plot(plot_data[cell,162000:], alpha=.5, color=f"C{cats[cell]}", label=label)
+            plt.title(f"clustercenter {i}: {len(cells_list)} Sweep 16")
+            plt.legend()
+            plt.show()
+        else: 
+            #plt.figure(figsize=(8,5))
+            plt.figure()
+            seen_labels = []
+            for cell in cells_list:
+
+                if cat_labels[cats[cell]] not in seen_labels:
+                    seen_labels.append(cat_labels[cats[cell]])
+                    label = cat_labels[cats[cell]]
+                else:
+                    label = None
+
+                plt.plot(plot_data[cell,:], alpha=.5, color=f"C{cats[cell]}", label=label)
+
+            plt.plot(c)
+            plt.title(f"clustercenter {i}: {len(cells_list)}")
+            plt.legend()
+            plt.show()
+            
+##### Agglomerative clustering #####
+
+def agglom_clust(n_clusters, table):
+    '''
+    Performs agglomerative clustering on a table for a given number of clusters. 
+    Params:
+        table (2d array): array of traces
+        n_clusters (int): Number of desired clusters. 
+    Returns:
+        clusterz (list): List of cluster numbers for each cell
+    '''
+    cluster = AgglomerativeClustering(n_clusters, affinity='euclidean', linkage='ward')  
+    clusterz = cluster.fit_predict(table)
+    
+    return clusterz
+
+##### Silhouette plots #####
+
+def silhouete_plots(table, range_clusters):
+    '''
+    Generates silhouete plots for a given range of clusters. 
+    Params:
+        table (2d array): array of traces 
+        range_clusters (int range): Range of integer clusters
+    Returns:
+        Silhouete plots for each number of clusters
+    '''
+    
+    print(__doc__)
+
+    for n_clusters in range_clusters:
+        # Create a subplot with 1 row and 2 columns
+        fig, (ax1, ax2) = plt.subplots(1, 2)
+        fig.set_size_inches(18, 7)
+
+        # The 1st subplot is the silhouette plot
+        # The silhouette coefficient can range from -1, 1 but in this example all
+        # lie within [-0.1, 1]
+        ax1.set_xlim([-0.1, 1])
+        # The (n_clusters+1)*10 is for inserting blank space between silhouette
+        # plots of individual clusters, to demarcate them clearly.
+        ax1.set_ylim([0, len(table) + (n_clusters + 1) * 10])
+
+        # Initialize the clusterer with n_clusters value and a random generator
+        # seed of 10 for reproducibility.
+        clusterer = KMeans(n_clusters=n_clusters)
+        cluster_labels = clusterer.fit_predict(table)
+
+        # The silhouette_score gives the average value for all the samples.
+        # This gives a perspective into the density and separation of the formed
+        # clusters
+        silhouette_avg = silhouette_score(table, cluster_labels)
+        print("For n_clusters =", n_clusters, "The average silhouette_score is :", silhouette_avg)
+
+        # Compute the silhouette scores for each sample
+        sample_silhouette_values = silhouette_samples(table, cluster_labels)
+
+        y_lower = 10
+        for i in range(n_clusters):
+        # Aggregate the silhouette scores for samples belonging to
+        # cluster i, and sort them
+            ith_cluster_silhouette_values = \
+                sample_silhouette_values[cluster_labels == i]
+
+            ith_cluster_silhouette_values.sort()
+
+            size_cluster_i = ith_cluster_silhouette_values.shape[0]
+            y_upper = y_lower + size_cluster_i
+
+            color = cm.nipy_spectral(float(i) / n_clusters)
+            ax1.fill_betweenx(np.arange(y_lower, y_upper), 0, ith_cluster_silhouette_values, facecolor=color, edgecolor=color, alpha=0.7)
+
+        # Label the silhouette plots with their cluster numbers at the middle
+            ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        # Compute the new y_lower for next plot
+            y_lower = y_upper + 10  # 10 for the 0 samples
+
+        ax1.set_title("The silhouette plot for the various clusters.")
+        ax1.set_xlabel("The silhouette coefficient values")
+        ax1.set_ylabel("Cluster label")
+
+    # The vertical line for average silhouette score of all the values
+        ax1.axvline(x=silhouette_avg, color="red", linestyle="--")
+
+        ax1.set_yticks([])  # Clear the yaxis labels / ticks
+        ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+
+        plt.suptitle(("Silhouette analysis for KMeans clustering on sample data "
+            "with n_clusters = %d" % n_clusters), fontsize=14, fontweight='bold')
+    plt.show()   
+
+
+
+def silhouete_plots_agglom(table, range_clusters):
+    '''
+    Generates silhouete plots for agglomerative clustering
+    Params:
+        table (2d array): array of traces 
+        range_clusters (range of ints): Range of cluster numbers to be visualized  
+    '''
+    #calculate variance explained and cumulative variance explained
+    covar_matrix=sklearnPCA(n_components=10)
+    covar_matrix.fit(table)
+    variance=covar_matrix.explained_variance_ratio_
+    var=np.cumsum(np.round(covar_matrix.explained_variance_ratio_, decimals=3)*100)
+    
+    #print graph of the variance explained with [n] features
+    plt.ylabel('%variance explained')
+    plt.xlabel('# of principle components')
+    plt.title('Variance Explained')
+   ## plt.ylim(70,100.5)
+    plt.style.context('seaborn-whitegrid')
+   # plt.plot(variance[:n_components])
+    variance=covar_matrix.explained_variance_ratio_
+    components=covar_matrix.components_
+    return covar_matrix
+    return variance
+    return components
     print(__doc__)
 
     for n_clusters in range_clusters:
