@@ -143,7 +143,9 @@ def filter_goodlabels(cell_labels, table):
     keep_flag = np.ones(len(cell_labels[:,1]), dtype=bool)
     for i, cell in enumerate(cell_labels[:,1]):
         if cell in good_labels:
-             keep_flag[i] = False
+            keep_flag[i] = True
+        else:
+            keep_flag[i] = False
     cell_labels = cell_labels[keep_flag]
     table = table[keep_flag]
     return(cell_labels, table, keep_flag)
