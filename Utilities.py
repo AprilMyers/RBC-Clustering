@@ -69,7 +69,7 @@ def load_table(filepath, rm_cap, scale, zero):
     return(table, voltage_list)
     
 
-def generate_table(flist, rm_cap, norm=1):
+def generate_table(flist, rm_cap, norm=5):
     """
     Loads table from a given file list
     params:
@@ -116,9 +116,38 @@ def generate_table(flist, rm_cap, norm=1):
         normed_table = table / cells_max[:,None]
         return(final_flist, normed_table)
     else:
-        return(final_flist, cell_table)
+        return(final_flist, table)
         
-
+def generate_table_nonorm(flist, rm_cap=True):
+    """
+    Loads table from a given file list
+    params:
+        flist (list): List of file paths for individual cells.
+        rm_cap: Flag to remove capacitance artefact
+        return_flist: Flag to return file list or not.
+    returns:
+        cell_table (np.array): Array of cells data. 
+    """
+    tables = []
+    voltage_lists = []
+    final_flist = []
+    for path in flist:
+        my_table, my_voltage_list = load_table(path, rm_cap=rm_cap, scale=False, zero=True)
+        if rm_cap & (my_table.shape == (10800, 16)):
+            tables.append(my_table)
+            voltage_lists.append(my_voltage_list)
+            final_flist.append(re.sub('.txt','',os.path.basename(path)))
+        if ~rm_cap & (my_table.shape == (11000, 16)):
+            tables.append(my_table)
+            voltage_lists.append(my_voltage_list)
+            final_flist.append(re.sub('.txt','',os.path.basename(path)))
+    table = np.stack(tables)
+    if rm_cap:
+        table = table.reshape((table.shape[0],(10800*16)), order="F")
+    else: 
+        table = table.reshape((table.shape[0],(11000*16)), order="F")
+    return(final_flist, table)
+        
 def readin_cell_labels(path='data/Cell_Types.csv'):
     '''
     Reads in metadata for each cell including name, manual cell classification, and whether it is excluded from the dataset
