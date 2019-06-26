@@ -15,6 +15,7 @@ from scipy.ndimage import filters
 import csv
 import re
 from scipy.ndimage import gaussian_filter1d
+from sklearn import metrics
 
 #### Load & modify data #####
 
@@ -110,7 +111,7 @@ def generate_table(flist, rm_cap, norm=5):
             trace = (trace - np.min(trace))
             normed_table[i]  = trace / np.mean(trace[163000:167000])
         return(final_flist, normed_table)
-    if norm == 3:
+    if norm == 2:
         normed_table = np.zeros_like(table)
         cells_max = np.amax(table, axis=1)
         normed_table = table / cells_max[:,None]
@@ -515,7 +516,7 @@ def run_pca(table, n_components):
     return variance
     return components
     
-def pca_denoise(table, n_components, compare):
+def pca_denoise(table, n_components, compare=False):
     '''
     Takes a table and performs PCA denoising on it. 
     Params:
@@ -814,6 +815,11 @@ def agglom_clust(n_clusters, table):
     clusterz = cluster.fit_predict(table)
     
     return clusterz
+
+##### Evaluate clusters #####
+def homoscore(labels_true, labels_pred):
+    homo_score = sklearn.metrics.homogeneity_score(labels_true, labels_pred)
+    return homo_score
 
 ##### Silhouette plots #####
 
